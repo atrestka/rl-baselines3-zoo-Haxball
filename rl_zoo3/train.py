@@ -12,7 +12,14 @@ import torch as th
 from stable_baselines3.common.utils import set_random_seed
 
 # Register custom envs
-import rl_zoo3.import_envs  # noqa: F401
+from gymnasium.envs.registration import register
+
+# Attempt to import the SinglePlayerEnvironment class to ensure it exists
+register(id='SinglePlayerHaxball-v0', 
+         entry_point='haxballgym:SinglePlayerEnvironment' 
+         )
+
+#import rl_zoo3.import_envs  # noqa: F401
 from rl_zoo3.exp_manager import ExperimentManager
 from rl_zoo3.utils import ALGOS, StoreDict
 

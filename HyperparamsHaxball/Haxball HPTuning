@@ -1,0 +1,93 @@
+#Remember to 'save all' after every iteration!!!!!!
+
+#Dealing with early pruning
+#######################################################
+
+
+#Iteration 0
+#First time we got it to work!
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -optimize --study-name HBHPv0 --storage "sqlite:///HBHPv0.db"
+
+#Iteration 1
+#Everywhere that the other environments were imported, I also imported the haxball environment as well, attempting to fix pruning for every trial
+#Issue with early pruning still persists
+#Adjusting search spaces for hyperparameters based on model complexity
+#Here are the parameters: 
+
+# gamma = trial.suggest_categorical("gamma", [0.99, 0.995])
+# learning_rate = trial.suggest_float("learning_rate", 1e-4, 1e-2, log=True)
+# batch_size = trial.suggest_categorical("batch_size", [32, 64, 128])
+# buffer_size = trial.suggest_categorical("buffer_size", [int(1e5), int(5e5)])
+# exploration_final_eps = trial.suggest_float("exploration_final_eps", 0.01, 0.1)
+# exploration_fraction = trial.suggest_float("exploration_fraction", 0.1, 0.4)
+# target_update_interval = trial.suggest_categorical("target_update_interval", [500, 1000, 5000])
+# learning_starts = trial.suggest_categorical("learning_starts", [0, 10000, 20000])
+
+# train_freq = trial.suggest_categorical("train_freq", [4, 16, 64])
+# subsample_steps = trial.suggest_categorical("subsample_steps", [1, 4])
+# gradient_steps = max(train_freq // subsample_steps, 1)  # This line directly computes the value based on train_freq and subsample_steps
+
+# net_arch_type = trial.suggest_categorical("net_arch", ["small", "medium"])
+# net_arch = {"small": [128, 128], "medium": [256, 256]}[net_arch_type]
+
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -optimize --study-name HBHPv1 --storage "sqlite:///HBHPv1.db"
+
+#Iteration 2
+#Disable Pruning -- all the trials are still getting pruned, so maybe we start by disabling the pruner
+
+
+
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -optimize --pruner none --study-name HBHPv2 --storage "sqlite:///HBHPv2.db"
+
+
+#Iteration 3
+#pruning still disable, now we tamper with eval-freq and --n-evaluations to attempt to show more meaningful progress
+
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -optimize --pruner none --eval-freq 50000 --n-evaluations 2 --study-name HBHPv3 --storage "sqlite:///HBHPv3.db"
+
+#Iteration 4
+#pruning is still disabled, no we return the original parameters provided to us. Eval freq and n-evaluations hieghtened correctly
+
+
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -optimize --pruner none --n-timesteps 100000 --n-evaluations 1 --study-name HBHPv4 --storage "sqlite:///HBHPv4.db"
+
+#Iteration 5
+#We have went back into Haxball and ensured that it is compatible with seed handling -- we now introduce the orignal line of code to try and rerun
+
+
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -optimize --study-name HBHPv5 --storage "sqlite:///HBHPv5.db"
+
+#Iteration 6
+#Fixed userwarnings
+
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -optimize --study-name HBHPv6 --storage "sqlite:///HBHPv6.db"
+
+
+#Iteration 7
+
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -optimize --study-name HBHPv7 --storage "sqlite:///HBHPv7.db"
+
+
+#Iteration 8
+
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -optimize --study-name HBHPv8 --storage "sqlite:///HBHPv8.db"
+
+
+#Iteration 9
+#decreased max number of steps to see if that helps
+
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -optimize --study-name HBHPv9 --storage "sqlite:///HBHPv9.db"
+
+#Iteration 10
+#Please all work now -- too lazy to detail all the changes I had to make
+
+
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -optimize --study-name HBHPv10 --storage "sqlite:///HBHPv10.db"
+
+#Iteration 11 -- Postgres database -- It Freakin works, everything freaking works, lets freaking go dude
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -optimize --study-name HBHPv12 --storage "postgresql://haxball_singleplayer_hps_user:cEjN1y26i88Q90MErG4fjwPbsjvSW0KL@dpg-co9jf7kf7o1s7399qbo0-a.ohio-postgres.render.com/haxball_singleplayer_hps"
+
+#To be run on Clusters:
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -optimize --n-trials 10 --study-name HBHPv1.0 --storage "postgresql://haxball_singleplayer_hps_user:cEjN1y26i88Q90MErG4fjwPbsjvSW0KL@dpg-co9jf7kf7o1s7399qbo0-a.ohio-postgres.render.com/haxball_singleplayer_hps"
+
+
