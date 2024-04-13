@@ -21,6 +21,7 @@ from optuna.samplers import BaseSampler, RandomSampler, TPESampler
 from optuna.study import MaxTrialsCallback
 from optuna.trial import TrialState
 from optuna.visualization import plot_optimization_history, plot_param_importances
+from optuna.storages import JournalStorage, JournalFileStorage
 from sb3_contrib.common.vec_env import AsyncEval
 
 # For using HER with GoalEnv
@@ -46,10 +47,28 @@ from stable_baselines3.common.vec_env import (
 from torch import nn as nn
 
 # Register custom envs
-import rl_zoo3.import_envs  # noqa: F401
+gym.register(
+    id='Haxball_1v1-v0',
+    entry_point='haxballgym:LoadedOpponentEnv1v1',
+    nondeterministic=True,
+)
+
+try:
+    env = gym.make('Haxball_1v1-v0')
+    print("Environment created successfully in exp_manager.py. You can now use it!")
+except gym.error.UnregisteredEnv:
+    print("Environment is not registered. Ensure registration code is executed.")
+
+#import rl_zoo3.import_envs  # noqa: F401
 from rl_zoo3.callbacks import SaveVecNormalizeCallback, TrialEvalCallback
 from rl_zoo3.hyperparams_opt import HYPERPARAMS_SAMPLER
 from rl_zoo3.utils import ALGOS, get_callback_list, get_class_by_name, get_latest_run_id, get_wrapper_class, linear_schedule
+
+#For Parallelization
+from dask.distributed import Client
+from dask.distributed import wait
+import optuna_integration
+import matplotlib as plt
 
 
 class ExperimentManager:
@@ -95,7 +114,7 @@ class ExperimentManager:
         vec_env_type: str = "dummy",
         n_eval_envs: int = 1,
         no_optim_plots: bool = False,
-        device: Union[th.device, str] = "auto",
+        device: Union[th.device, str] = 'cpu',
         config: Optional[str] = None,
         show_progress: bool = False,
     ):
@@ -149,6 +168,7 @@ class ExperimentManager:
         self._is_atari = self.is_atari(env_id)
         # Hyperparameter optimization config
         self.optimize_hyperparameters = optimize_hyperparameters
+        #Enable Journal storage in order to allow parallelization across multiple machines 
         self.storage = storage
         self.study_name = study_name
         self.no_optim_plots = no_optim_plots
@@ -836,83 +856,100 @@ class ExperimentManager:
         sampler = self._create_sampler(self.sampler)
         pruner = self._create_pruner(self.pruner)
 
-        if self.verbose > 0:
-            print(f"Sampler: {self.sampler} - Pruner: {self.pruner}")
 
-        study = optuna.create_study(
-            sampler=sampler,
-            pruner=pruner,
-            storage=self.storage,
-            study_name=self.study_name,
-            load_if_exists=True,
-            direction="maximize",
-        )
+        ############################################
+        ###### FOR THE LOVE OF ORGANIZATION ########
+        #######   COME BACK HERE MF!!!!!!###########
+        ############################################
+        #jeeb = 5 number of machines
 
-        try:
-            if self.max_total_trials is not None:
-                # Note: we count already running trials here otherwise we get
-                #  (max_total_trials + number of workers) trials in total.
-                counted_states = [
-                    TrialState.COMPLETE,
-                    TrialState.RUNNING,
-                    TrialState.PRUNED,
-                ]
-                completed_trials = len(study.get_trials(states=counted_states))
-                if completed_trials < self.max_total_trials:
-                    study.optimize(
-                        self.objective,
-                        n_jobs=self.n_jobs,
-                        callbacks=[
-                            MaxTrialsCallback(
-                                self.max_total_trials,
-                                states=counted_states,
-                            )
-                        ],
-                    )
-            else:
-                study.optimize(self.objective, n_jobs=self.n_jobs, n_trials=self.n_trials)
-        except KeyboardInterrupt:
-            pass
+        with Client() as client:
+            if self.verbose > 0:
+                print(f"Sampler: {self.sampler} - Pruner: {self.pruner}")
 
-        print("Number of finished trials: ", len(study.trials))
+                study = optuna.create_study(
+                    sampler=sampler,
+                    storage = optuna_integration.DaskStorage(),
+                    pruner=pruner,
+                    study_name=self.study_name,
+                    load_if_exists=True,
+                    direction="maximize",
+                )
 
-        print("Best trial:")
-        trial = study.best_trial
+            #Allow Parallelization
+            futures = [client.submit(study.optimize, self.objective, n_trials=10, pure=False) for _ in range(5)]
+            wait(futures)
+    
+            print("Number of finished trials: ", len(study.trials))
 
-        print("Value: ", trial.value)
+            print("Best trial:")
+            trial = study.best_trial
 
-        print("Params: ")
-        for key, value in trial.params.items():
-            print(f"    {key}: {value}")
+            print("Value: ", trial.value)
 
-        report_name = (
-            f"report_{self.env_name}_{self.n_trials}-trials-{self.n_timesteps}"
-            f"-{self.sampler}-{self.pruner}_{int(time.time())}"
-        )
+            print("Params: ")
+            for key, value in trial.params.items():
+                print(f"    {key}: {value}")
 
-        log_path = os.path.join(self.log_folder, self.algo, report_name)
+            log_path = os.path.join(self.log_folder, self.algo, self.study_name)
 
-        if self.verbose:
-            print(f"Writing report to {log_path}")
+            if self.verbose:
+                print(f"Writing report to {log_path}")
 
-        # Write report
-        os.makedirs(os.path.dirname(log_path), exist_ok=True)
-        study.trials_dataframe().to_csv(f"{log_path}.csv")
+            # Write report
+            os.makedirs(os.path.dirname(log_path), exist_ok=True)
+            study.trials_dataframe().to_csv(f"{log_path}.csv")
 
-        # Save python object to inspect/re-use it later
-        with open(f"{log_path}.pkl", "wb+") as f:
-            pkl.dump(study, f)
+            # Save python object to inspect/re-use it later
+            with open(f"{log_path}.pkl", "wb+") as f:
+                pkl.dump(study, f)
 
-        # Skip plots
-        if self.no_optim_plots:
-            return
+            # Skip plots
+            if self.no_optim_plots:
+                return
 
-        # Plot optimization result
-        try:
-            fig1 = plot_optimization_history(study)
-            fig2 = plot_param_importances(study)
+            # Plot optimization result
+            study_directory = os.path.join(self.log_folder, self.algo, self.study_name)
+            os.makedirs(study_directory, exist_ok=True)
 
-            fig1.show()
-            fig2.show()
-        except (ValueError, ImportError, RuntimeError):
-            pass
+            
+            plot_files = [
+                'edf_plot.png', 'optimization_history_plot.png', 'intermediate_values_plot.png',
+                'parallel_coordinate_plot.png', 'param_importances_plot.png', 'pareto_front_plot.png',
+                'rank_plot.png', 'slice_plot.png', 'contour_plot.png', 'timeline_plot.png'
+            ]
+
+            plot_functions = [
+                optuna.visualization.plot_edf,
+                optuna.visualization.plot_optimization_history,
+                optuna.visualization.plot_intermediate_values,
+                optuna.visualization.plot_parallel_coordinate,
+                optuna.visualization.plot_param_importances,
+                optuna.visualization.plot_pareto_front,
+                optuna.visualization.plot_rank,
+                optuna.visualization.plot_slice,
+                optuna.visualization.plot_contour,
+                optuna.visualization.plot_timeline
+            ]
+
+            print("Starting plot creation")
+
+            successful_plots = 0
+
+            for plot_func, fname in zip(plot_functions, plot_files):
+                try:
+                    # Generate the plot
+                    fig = plot_func(study)
+                    if fig:
+                        # Construct the full path where the plot will be saved
+                        fig_path = os.path.join(study_directory, fname)
+                        
+                        # Save the figure as a PNG file
+                        fig.write_image(fig_path)
+                        print(f"Saved {fname} successfully.")
+                        successful_plots += 1
+                        
+                except Exception as e:
+                    print(f"Failed to generate or save {fname}. Error: {e}")
+
+            print(f"{successful_plots} out of {len(plot_files)} plots saved successfully to {study_directory}")

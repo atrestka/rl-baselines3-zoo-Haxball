@@ -5,7 +5,9 @@ import pickle
 from pprint import pprint
 
 import optuna
+from optuna.storages import JournalStorage, JournalFileStorage
 from optuna.trial import FrozenTrial
+
 
 
 def value_key(trial: FrozenTrial) -> float:
@@ -43,10 +45,11 @@ if args.study_name is None:
 
 else:
     assert args.storage is not None, "No storage was specified."
+    storageNew = JournalStorage(JournalFileStorage(args.storage))
 
     study = optuna.create_study(
         study_name=args.study_name,
-        storage=args.storage,
+        storage=storageNew,
         load_if_exists=True,
         direction="maximize",
     )

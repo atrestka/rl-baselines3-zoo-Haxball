@@ -340,7 +340,7 @@ if __name__ == "__main__":
 
     if args.num_threads > 0:
         if args.verbose > 1:
-            print(f"Setting torch.num_threads to {args.num_threads}")
+            print(f"Setting pytorch.num_threads to {args.num_threads}")
         th.set_num_threads(args.num_threads)
 
     is_atari = ExperimentManager.is_atari(env_name.gym_id)

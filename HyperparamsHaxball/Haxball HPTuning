@@ -91,3 +91,94 @@ python train.py --algo dqn --env SinglePlayerHaxball-v0 -optimize --study-name H
 python train.py --algo dqn --env SinglePlayerHaxball-v0 -optimize --n-trials 10 --study-name HBHPv1.0 --storage "postgresql://haxball_singleplayer_hps_user:cEjN1y26i88Q90MErG4fjwPbsjvSW0KL@dpg-co9jf7kf7o1s7399qbo0-a.ohio-postgres.render.com/haxball_singleplayer_hps"
 
 
+#Latest: We ran this on a cluster and it worked -- Hooray! We can now try to parallelize
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -optimize --n-trials 10 --study-name HBHPv1.1 --storage "sqlite:///HBHPv1.1"
+
+
+
+
+#Latest version: attempt to utilize journal storage: Journal Storage works for a single machine, which is kinda epic not gonna lie
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -optimize --n-trials 1 --study-name HBHPv2.0 --storage "./HBHPv2.0.log"
+
+
+#Final Test #2.3
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -optimize --n-trials 50 --study-name HBHPv2.5 --storage "./HBHPv2.3.log"
+
+
+
+#Fix to 12 trials: 
+#Test: 12 trials, 4 tasks, 
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -optimize --n-trials 12 --study-name HBHPv12t.4ts --storage "./HBHPv12t.4ts.log"
+
+#Test: 12 trials, 6 tasks,
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -optimize --n-trials 12 --study-name HBHPv12t.6ts --storage "./HBHPv12t.6ts.log"
+
+
+
+#final for Single Player Environment:
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -optimize --n-trials 100 --study-name HBHPv100t.25ts --storage "./HBHPv100t.25ts.log"
+
+
+#changing to multithreading -- journalstorage is too inefficient, we have hella resources in the clusters --comparing rutimes
+#it was decent --25 min, lets scale up
+
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -n 50000 -optimize --n-trials 10 --n-jobs 2 --sampler tpe --pruner median
+
+
+#scale up
+
+#failed trial, must stick to 50000 for the sake of computation time.
+
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -n 100000 -optimize --n-trials 20 --n-jobs 4 --sampler tpe --pruner median
+
+#scale up -- keep n the same, double both states and jobs - lmao, only ran 10 trials by 30 minutes, what the heck
+
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -n 50000 -optimize --n-trials 20 --n-jobs 4 --sampler tpe --pruner median
+
+#4 threads and 20 trials again, however, inlcude num-threads argument
+
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -n 50000 -optimize --n-trials 20 --num-threads 4 --n-jobs 4 --sampler tpe --pruner median
+
+
+#return to 10 trials and 2 threads, utilize num-threads argument and correct version of pytorch ~25 min is the time to beat, 18 min, so better for sure
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -n 50000 -optimize --n-trials 10 --n-jobs 2 --num-threads 2 --sampler tpe --pruner median
+
+#and then we test again w gpu :) yet to come, mfs dont want to see me win
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -n 50000 -optimize --n-trials 10 --n-jobs 2 --num-threads 2 --sampler tpe --pruner median
+
+
+#small scale up, n still fixed, failed, so we know that the ratio bewteen cpu to jobs is not 5:1, failed at 10 trials
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -n 50000 -optimize --n-trials 15 --n-jobs 3 --num-threads 3 --sampler tpe --pruner median
+
+
+
+# scale up in cpus, n still fixed, still failed. Lets try to specify the device? Not even two trials were completed
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -n 50000 -optimize --n-trials 15 --n-jobs 4 --num-threads 4 --sampler tpe --pruner median
+
+
+#This better Fucking work or I swear to God man, its gonna get tragic no patek hop out the v and its gonna be automatic. Mangekyo Sharingan -- Attempt at true parallelization, lets get this shit, 10 minutes, womp womp 
+
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -n 50000 -optimize --n-trials 20 --study-name Trials_20_tasks_4_parallel
+
+
+
+#5 process, 4 tasks per
+#Results I guess
+
+#100k in fact does make a difference but this is what we want
+
+#Reset device after this -- check LGTM -- 100k timesteps now, lets get it, only 13 trials completed, lets try less machines?
+
+
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -n 100000 -optimize --study-name Trials_20_tasks_6_parallel
+
+
+#4 machines this time -- Interesting results: 4 nodes got further along in the process, but not by much. however, remember that the graph, need a longer runtime
+#to actually see the difference
+
+# 96 trials, 16 machines... its time to get this shit going my g
+
+python train.py --algo dqn --env SinglePlayerHaxball-v0 -n 100000 -optimize --n-trials 96 --study-name Trials_96_tasks_16_parallel
+
+
+

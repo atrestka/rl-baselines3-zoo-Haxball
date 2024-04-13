@@ -15,12 +15,25 @@ from stable_baselines3.common.utils import set_random_seed
 from gymnasium.envs.registration import register
 
 # Attempt to import the SinglePlayerEnvironment class to ensure it exists
-register(id='SinglePlayerHaxball-v0', 
-         entry_point='haxballgym:SinglePlayerEnvironment' 
-         )
+# register(id='SinglePlayerHaxball-v0', 
+#          entry_point='haxballgym:SinglePlayerEnvironment' 
+#          )
 
 #import rl_zoo3.import_envs  # noqa: F401
-from rl_zoo3.exp_manager import ExperimentManager
+
+register(
+    id='Haxball_1v1-v0',
+    entry_point='haxballgym:LoadedOpponentEnv1v1',
+    nondeterministic=True,
+)
+
+try:
+    env = gym.make('Haxball_1v1-v0')
+    print("Environment created successfully in Train.py. You can now use it!")
+except gym.error.UnregisteredEnv:
+    print("Environment is not registered. Ensure registration code is executed.")
+
+from exp_manager import ExperimentManager
 from rl_zoo3.utils import ALGOS, StoreDict
 
 
